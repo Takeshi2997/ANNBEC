@@ -30,38 +30,45 @@ function update(x::Vector{Float32})
     end
 end
 
-function hamiltonianS(x::Vector{Float32},
-                      z::Complex{Float32}, ix::Integer)
+function hamiltonianS(x::Vector{Float32}, z::Complex{Float32}, 
+                      i::Integer, j::Integer)
 
-    out = 1.0f0 + 0.0f0im
-    ixnext = Const.dimB + (ix - Const.dimB) % Const.dimS + 1
-    if x[ix] != x[ixnext]
-        xflip = flip2(x, ix, ixnext)
+    out = 0.0f0im
+    if x[i] != x[j]
+        xflip = flip2(x, i, j)
         zflip = ANN.forward(xflip)
-        out   = 2.0f0 * exp(zflip - z) - 1.0f0
+        out  += exp(zflip - z)
     end
 
-    return -Const.J * out / 4.0f0
+    return Const.t * out
 end
 
 function energyS(x::Vector{Float32})
 
     z = ANN.forward(x)
     sum = 0.0f0im
-    @simd for ix in Const.dimB+1:Const.dimB+Const.dimS
-        sum += hamiltonianS(x, z, ix)
+    @simd for i in 1:Const.dimS
+        ix = Const.latticeS[i]
+        iy1 = (Const.LB+(ix[1]-Const.LB)%Const.LS+1, ix[2], ix[3])
+        iy2 = (ix[1], ix[2]%Const.LS+1, ix[3])
+        iy3 = (ix[1], ix[2], ix[3]%Const.LS+1)
+        j1 = Const.indices[iy1]
+        j2 = Const.indices[iy2]
+        j3 = Const.indices[iy3]
+        sum += hamiltonianS(x, z, i, j1)
+        sum += hamiltonianS(x, z, i, j2)
+        sum += hamiltonianS(x, z, i, j3)
     end
 
     return sum
 end
 
-function hamiltonianB(x::Vector{Float32}, 
-                      z::Complex{Float32}, iy::Integer)
+function hamiltonianB(x::Vector{Float32}, z::Complex{Float32}, 
+                      i::Integer, j::Integer)
 
     out = 0.0f0im
-    iynext = iy%Const.dimB + 1
-    if x[iy] != x[iynext]
-        xflip = flip2(x, iy, iynext)
+    if x[i] != x[j]
+        xflip = flip2(x, i, j)
         zflip = ANN.forward(xflip)
         out  += exp(zflip - z)
     end
@@ -73,8 +80,17 @@ function energyB(x::Vector{Float32})
 
     z = ANN.forward(x)
     sum = 0.0f0im
-    @simd for iy in 1:Const.dimB 
-        sum += hamiltonianB(x, z, iy)
+    @simd for i in length(x)
+        ix = Const.latticeS[i]
+        iy1 = (ix[1]%Const.LB+1, ix[2], ix[3])
+        iy2 = (ix[1], ix[2]%Const.LB+1, ix[3])
+        iy3 = (ix[1], ix[2], ix[3]%Const.LB+1)
+        j1 = Const.indices[iy1]
+        j2 = Const.indices[iy2]
+        j3 = Const.indices[iy3]
+        sum += hamiltonianB(x, z, i, j1)
+        sum += hamiltonianB(x, z, i, j2)
+        sum += hamiltonianB(x, z, i, j3)
     end
 
     return sum

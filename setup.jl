@@ -3,18 +3,33 @@ using Base.Iterators
 
 # System Size
 const LS   = 4
-const LB   = 8
+const LB   = 6
 const dimS = LS^3
 const dimB = LB^3
 
 # Lattice
-function lattice(L)
+function makelattice(L::Integer, system::String)
+    v = zeros(Integer, L)
+    if system == "System"
+        v .+= Const.LB
+    end
     a = [i for i in 1:L]
-    lattice = reshape(collect(product(a, a, a)), L^3)
+    lattice = reshape(collect(product(a.+v, a, a)), L^3)
     return lattice
 end
-const latticeS = lattice(LS)
-const latticeB = lattice(LB)
+function makeindices(lattice::Array{Tuple{Int64,Int64,Int64},1})
+    dim = length(lattice)
+    indices = Dict{Tuple, Int64}()
+    for i in 1:dim
+        coordinate = lattice[i]
+        indices[coordinate] = i
+    end
+    return indices
+end
+const latticeS = makelattice(LS, "System")
+const latticeB = makelattice(LB, "Bath")
+const lattice  = vcat(latticeB, latticeS)
+const indices  = makeindices(lattice)
 
 # System Param
 const t = 1.0f0
